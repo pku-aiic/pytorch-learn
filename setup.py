@@ -13,6 +13,7 @@ setup(
     packages=find_packages(exclude=("tests",)),
     install_requires=[
         "tqdm",
+        "pytorch-nlp",
         "numpy>=1.19.2",
         "scipy>=1.2.1",
         "matplotlib>=3.0.3",
