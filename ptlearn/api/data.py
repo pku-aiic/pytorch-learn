@@ -1,6 +1,10 @@
 import numpy as np
 
+from typing import Any
+from typing import Callable
 from typing import Optional
+from torch.utils.data import Dataset
+from torch.utils.data import DataLoader
 
 from ..types import tensor_dict_type
 from ..protocol import DataProtocol
@@ -56,7 +60,44 @@ class MLLoader(DataLoaderProtocol):
         }
 
 
+@DataProtocol.register("dl")
+class DLData(DataProtocol):
+    def __init__(self, dataset: Dataset):
+        self.dataset = dataset
+
+    def __len__(self) -> int:
+        return len(self.dataset)  # type: ignore
+
+    def __getitem__(self, item: Any) -> Any:
+        return self.dataset[item]
+
+
+@DataLoaderProtocol.register("dl")
+class DLLoader(DataLoaderProtocol):
+    data: DLData
+
+    def __init__(
+        self,
+        loader: DataLoader,
+        batch_callback: Callable[[Any], tensor_dict_type],
+    ):
+        self.loader = loader
+        self.data = loader.dataset  # type: ignore
+        self.batch_size = loader.batch_size  # type: ignore
+        self.batch_callback = batch_callback
+        self._iterator: Optional[Any] = None
+
+    def __iter__(self) -> "DLLoader":
+        self._iterator = self.loader.__iter__()
+        return self
+
+    def __next__(self) -> tensor_dict_type:
+        return self.batch_callback(self._iterator.__next__())  # type: ignore
+
+
 __all__ = [
     "MLData",
     "MLLoader",
+    "DLData",
+    "DLLoader",
 ]
