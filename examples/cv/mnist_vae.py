@@ -50,8 +50,8 @@ transform = transforms.Compose(
 train_data = data_base(MNIST("data", transform=transform, download=True))
 valid_data = data_base(MNIST("data", train=False, transform=transform, download=True))
 
-train_pt_loader = DataLoader(train_data, batch_size=64, shuffle=True)
-valid_pt_loader = DataLoader(train_data, batch_size=64, shuffle=True)
+train_pt_loader = DataLoader(train_data, batch_size=64, shuffle=True)  # type: ignore
+valid_pt_loader = DataLoader(train_data, batch_size=64, shuffle=True)  # type: ignore
 
 train_loader = loader_base(train_pt_loader, batch_callback)
 valid_loader = loader_base(valid_pt_loader, batch_callback)

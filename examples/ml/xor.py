@@ -5,7 +5,7 @@ import numpy as np
 from typing import Tuple
 
 
-def get_xy(n) -> Tuple[np.ndarray, np.ndarray]:
+def get_xy(n: int) -> Tuple[np.ndarray, np.ndarray]:
     x = np.random.random([n, 2]) * 2.0 - 1.0
     y = (np.prod(x, axis=1, keepdims=True) > 0).astype(np.int64)
     return x, y

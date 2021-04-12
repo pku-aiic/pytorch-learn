@@ -38,6 +38,9 @@ loader_dict: Dict[str, Type["DataLoaderProtocol"]] = {}
 
 
 class DataProtocol(ABC):
+    def __init__(self, *args: Any, **kwargs: Any):
+        pass
+
     @abstractmethod
     def __len__(self) -> int:
         pass
@@ -55,6 +58,9 @@ class DataProtocol(ABC):
 class DataLoaderProtocol(ABC):
     data: DataProtocol
     batch_size: int
+
+    def __init__(self, *args: Any, **kwargs: Any):
+        pass
 
     @abstractmethod
     def __iter__(self) -> "DataLoaderProtocol":
