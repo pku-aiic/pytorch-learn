@@ -114,6 +114,7 @@ class TrainerState:
         snapshot_start_step: Optional[int] = None,
         max_snapshot_file: int = 5,
         num_snapshot_per_epoch: int = 2,
+        num_step_per_log: int = 350,
         num_step_per_snapshot: Optional[int] = None,
     ):
         self.step = self.epoch = 0
@@ -125,6 +126,7 @@ class TrainerState:
             snapshot_start_step = math.ceil(min_num_sample / self.batch_size)
         self.snapshot_start_step = snapshot_start_step
         self.max_snapshot_file = max_snapshot_file
+        self.num_step_per_log = num_step_per_log
         if num_step_per_snapshot is None:
             num_step_per_snapshot = int(len(loader) / num_snapshot_per_epoch)
         self.num_step_per_snapshot = num_step_per_snapshot
@@ -167,7 +169,7 @@ class TrainerState:
     def should_log_metrics_msg(self) -> bool:
         if not self.enable_logging:
             return False
-        min_period = math.ceil(350 / self.num_step_per_snapshot)
+        min_period = math.ceil(self.num_step_per_log / self.num_step_per_snapshot)
         period = max(1, int(min_period)) * self.num_step_per_snapshot
         return self.step % period == 0
 
