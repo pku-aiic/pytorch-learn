@@ -36,6 +36,7 @@ loader_dict: Dict[str, Type["DataLoaderProtocol"]] = {}
 
 # data
 
+
 class DataProtocol(ABC):
     @abstractmethod
     def __len__(self) -> int:
@@ -78,6 +79,7 @@ class DataLoaderProtocol(ABC):
 
 # model
 
+
 class ModelProtocol(nn.Module, metaclass=ABCMeta):
     def __init__(self, *args: Any, **kwargs: Any):
         super().__init__()
@@ -99,6 +101,7 @@ class StepOutputs(NamedTuple):
 
 
 # trainer
+
 
 class TrainerState:
     def __init__(
@@ -379,6 +382,7 @@ class FocalLoss(LossProtocol):
 
 # inference
 
+
 class InferenceOutputs(NamedTuple):
     forward_results: np_dict_type
     labels: Optional[np.ndarray]
@@ -469,6 +473,7 @@ class InferenceProtocol:
 
 
 # metrics
+
 
 class MetricsOutputs(NamedTuple):
     final_score: float
