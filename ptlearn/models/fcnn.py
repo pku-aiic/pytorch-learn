@@ -25,14 +25,14 @@ class Mapping(nn.Module):
         dropout: float = 0.0,
     ):
         super().__init__()
-        nets: List[nn.Module] = [nn.Linear(in_dim, out_dim, bias)]
+        blocks: List[nn.Module] = [nn.Linear(in_dim, out_dim, bias)]
         if activation is not None:
-            nets.append(getattr(nn, activation)())
+            blocks.append(getattr(nn, activation)())
         if batch_norm:
-            nets.append(BN(out_dim))
+            blocks.append(BN(out_dim))
         if dropout > 0.0:
-            nets.append(nn.Dropout(dropout))
-        self.net = nn.Sequential(*nets)
+            blocks.append(nn.Dropout(dropout))
+        self.net = nn.Sequential(*blocks)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.net(x)
@@ -51,13 +51,13 @@ class FCNN(ModelProtocol):
         dropout: float = 0.0,
     ):
         super().__init__()
-        nets: List[nn.Module] = []
+        blocks: List[nn.Module] = []
         for num_unit in num_units:
             mapping = Mapping(in_dim, num_unit, bias, activation, batch_norm, dropout)
-            nets.append(mapping)
+            blocks.append(mapping)
             in_dim = num_unit
-        nets.append(nn.Linear(in_dim, out_dim, bias))
-        self.net = nn.Sequential(*nets)
+        blocks.append(nn.Linear(in_dim, out_dim, bias))
+        self.net = nn.Sequential(*blocks)
 
     def forward(
         self,
