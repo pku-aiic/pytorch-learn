@@ -1,5 +1,5 @@
-INFO_PREFIX = "> [info] "
-ERROR_PREFIX = "> [error] "
+INFO_PREFIX = ">  [ info ] "
+ERROR_PREFIX = "> [ error ] "
 WARNING_PREFIX = "> [warning] "
 
 LOSS_KEY = "loss"
