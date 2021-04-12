@@ -1,0 +1,11 @@
+.idea/*
+.DS_Store
+*.pyc
+.vscode/*
+_*/
+build/*
+pytorch_learn.egg-info
+pip-wheel-metadata
+**/.ipynb_checkpoints/*
+dist/*
+**/mlruns/*
