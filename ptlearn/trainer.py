@@ -109,15 +109,15 @@ class Trainer:
         self.callback = callback or TrainerCallback()
         self.metrics = metrics
         # initialize artifact structure
-        workplace = os.path.join(workplace, timestamp())
-        if os.path.isdir(workplace):
+        self.workplace = os.path.join(workplace, timestamp())
+        if os.path.isdir(self.workplace):
             print(f"{WARNING_PREFIX}workplace already exists, it will be erased")
-            shutil.rmtree(workplace)
-        os.makedirs(workplace)
-        self.metric_log_path = os.path.join(workplace, metric_log_file)
+            shutil.rmtree(self.workplace)
+        os.makedirs(self.workplace)
+        self.metric_log_path = os.path.join(self.workplace, metric_log_file)
         with open(self.metric_log_path, "w"):
             pass
-        self.checkpoint_folder = os.path.join(workplace, "checkpoints")
+        self.checkpoint_folder = os.path.join(self.workplace, "checkpoints")
         os.makedirs(self.checkpoint_folder)
         # properties
         self.checkpoint_scores: Dict[str, float] = {}
@@ -291,6 +291,8 @@ class Trainer:
         *,
         cuda: Optional[str] = None,
     ) -> None:
+        with open(os.path.join(self.workplace, "model.txt"), "w") as f:
+            f.write(str(model))
         self.device = torch.device("cpu" if cuda is None else f"cuda:{cuda}")
         self.loss = loss
         self.model = model.to(self.device)
@@ -309,6 +311,7 @@ class Trainer:
         self._init_optimizers()
         # train
         has_ckpt = terminate = False
+        print(f"{INFO_PREFIX}entered training loop")
         while self.state.should_train:
             try:
                 self.state.epoch += 1
