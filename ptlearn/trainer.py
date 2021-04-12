@@ -83,6 +83,7 @@ class Trainer:
         state_config: Optional[Dict[str, Any]] = None,
         *,
         num_epoch: int = 10,
+        valid_portion: float = 1.0,
         amp: bool = False,
         clip_norm: float = 0.0,
         ddp: bool = False,
@@ -96,6 +97,7 @@ class Trainer:
         self.config = config or {}
         self.state_config = state_config or {}
         self.num_epoch = num_epoch
+        self.valid_portion = valid_portion
         self.use_amp = amp
         self.grad_scaler = torch.cuda.amp.GradScaler(enabled=amp)
         self.clip_norm = clip_norm
@@ -345,6 +347,7 @@ class Trainer:
     def get_metrics(
         self,
         *,
+        portion: float = 1.0,
         loader: Optional[DataLoaderProtocol] = None,
     ) -> Tuple[InferenceOutputs, MetricsOutputs]:
         if loader is None:
@@ -353,6 +356,7 @@ class Trainer:
         outputs = self.inference.get_outputs(
             self.device,
             loader,
+            portion=portion,
             state=self.state,
             loss=loss,
         )
