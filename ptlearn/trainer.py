@@ -54,8 +54,31 @@ class TrainerCallback:
     def log_lr(self, key: str, lr: float, step: int) -> None:
         pass
 
-    def log_metrics(self, metric_outputs: "MetricsOutputs") -> None:
+    def log_metrics(self, metric_outputs: MetricsOutputs) -> None:
         pass
+
+    def log_metrics_msg(
+        self,
+        state: TrainerState,
+        metric_outputs: MetricsOutputs,
+        metric_log_path: str,
+    ) -> None:
+        final_score = metric_outputs.final_score
+        metric_values = metric_outputs.metric_values
+        core = " | ".join(
+            [
+                f"{k} : {fix_float_to_length(metric_values[k], 8)}"
+                for k in sorted(metric_values)
+            ]
+        )
+        msg = (
+            f"| epoch {state.epoch:^4d} - "
+            f"step {state.step:^6d} | {core} | "
+            f"score : {fix_float_to_length(final_score, 8)} |"
+        )
+        print(msg)
+        with open(metric_log_path, "a") as f:
+            f.write(f"{msg}\n")
 
     def log_artifacts(self, trainer: "Trainer") -> None:
         pass
@@ -217,24 +240,6 @@ class Trainer:
                     )
                 scheduler.step()
 
-    def _log_metrics_msg(self, metric_outputs: MetricsOutputs) -> None:
-        final_score = metric_outputs.final_score
-        metric_values = metric_outputs.metric_values
-        core = " | ".join(
-            [
-                f"{k} : {fix_float_to_length(metric_values[k], 8)}"
-                for k in sorted(metric_values)
-            ]
-        )
-        msg = (
-            f"| epoch {self.state.epoch:^4d} - "
-            f"step {self.state.step:^6d} | {core} | "
-            f"score : {fix_float_to_length(final_score, 8)} |"
-        )
-        print(msg)
-        with open(self.metric_log_path, "a") as f:
-            f.write(f"{msg}\n")
-
     def _monitor_step(self) -> MonitorResults:
         outputs = None
         metric_outputs = None
@@ -248,7 +253,11 @@ class Trainer:
             if self.state.should_log_artifacts:
                 self.callback.log_artifacts(self)
             if self.state.should_log_metrics_msg:
-                self._log_metrics_msg(metric_outputs)
+                self.callback.log_metrics_msg(
+                    self.state,
+                    metric_outputs,
+                    self.metric_log_path,
+                )
             # check terminate
             if self.state.should_start_snapshot:
                 score = metric_outputs.final_score
@@ -343,7 +352,11 @@ class Trainer:
         # finalize
         self.state.set_terminate()
         _, self.final_results = self.get_metrics()
-        self._log_metrics_msg(self.final_results)
+        self.callback.log_metrics_msg(
+            self.state,
+            self.final_results,
+            self.metric_log_path,
+        )
         if not has_ckpt:
             self.save_checkpoint(self.final_results.final_score)
 
