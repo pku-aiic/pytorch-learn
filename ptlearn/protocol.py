@@ -289,6 +289,7 @@ class LossProtocol(nn.Module, metaclass=ABCMeta):
         return register_core(name, loss_dict)
 
 
+@LossProtocol.register("mae")
 class MAELoss(LossProtocol):
     def _core(
         self,
