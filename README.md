@@ -26,4 +26,4 @@ pip install -e .
 
 ## Examples
 
-Please visit the [`examples`](https://github.com/pku-aiic/pytorch-learn/examples) folder for more details.
+Please visit the [`examples`](https://github.com/pku-aiic/pytorch-learn/tree/dev/examples) folder for more details.
