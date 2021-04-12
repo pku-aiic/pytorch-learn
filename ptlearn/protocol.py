@@ -219,14 +219,6 @@ class MonitorResults(NamedTuple):
     metric_outputs: Optional["MetricsOutputs"]
 
 
-class TrainerCallback:
-    def after_step(self, step_outputs: StepOutputs) -> None:
-        pass
-
-    def after_monitor(self, monitor_results: MonitorResults) -> None:
-        pass
-
-
 # loss
 
 loss_dict: Dict[str, Type["LossProtocol"]] = {}
@@ -497,7 +489,6 @@ __all__ = [
     "DataLoaderProtocol",
     "TrainerState",
     "TrainerMonitor",
-    "TrainerCallback",
     "InferenceOutputs",
     "InferenceProtocol",
     "MonitorResults",

@@ -22,7 +22,6 @@ from .protocol import ModelProtocol
 from .protocol import MetricsOutputs
 from .protocol import MonitorResults
 from .protocol import TrainerMonitor
-from .protocol import TrainerCallback
 from .protocol import MetricsProtocol
 from .protocol import InferenceOutputs
 from .protocol import InferenceProtocol
@@ -49,6 +48,23 @@ def _setup_ddp(ddp_settings: DDPSettings) -> None:
         rank=ddp_settings.rank,
         world_size=ddp_settings.world_size,
     )
+
+
+class TrainerCallback:
+    def log_lr(self, key: str, lr: float, step: int) -> None:
+        pass
+
+    def log_metrics(self, metric_outputs: "MetricsOutputs") -> None:
+        pass
+
+    def log_artifacts(self, trainer: "Trainer") -> None:
+        pass
+
+    def after_step(self, step_outputs: StepOutputs) -> None:
+        pass
+
+    def after_monitor(self, monitor_results: MonitorResults) -> None:
+        pass
 
 
 class Trainer:
@@ -171,32 +187,6 @@ class Trainer:
                 scheduler_base = scheduler_dict[scheduler]
                 self.schedulers[params_name] = scheduler_base(opt, **scheduler_config)
 
-    # logging
-
-    def _log_lr_step(self, key: str, lr: float, step: int) -> None:
-        pass
-
-    def _log_metrics_msg(self, metric_outputs: MetricsOutputs) -> None:
-        final_score = metric_outputs.final_score
-        metric_values = metric_outputs.metric_values
-        core = " | ".join(
-            [
-                f"{k} : {fix_float_to_length(metric_values[k], 8)}"
-                for k in sorted(metric_values)
-            ]
-        )
-        msg = (
-            f"| epoch {self.state.epoch:^4d} - "
-            f"step {self.state.step:^6d} | {core} | "
-            f"score : {fix_float_to_length(final_score, 8)} |"
-        )
-        print(msg)
-        with open(self.metric_log_path, "a") as f:
-            f.write(f"{msg}\n")
-
-    def _log_artifacts(self) -> None:
-        pass
-
     # core
 
     def _clip_norm_step(self) -> None:
@@ -218,12 +208,30 @@ class Trainer:
         for key, scheduler in self.schedulers.items():
             if scheduler is not None:
                 if self.state.should_log_lr:
-                    self._log_lr_step(
+                    self.callback.log_lr(
                         f"lr-{key}",
                         scheduler.get_last_lr()[0],
                         self.state.step,
                     )
                 scheduler.step()
+
+    def _log_metrics_msg(self, metric_outputs: MetricsOutputs) -> None:
+        final_score = metric_outputs.final_score
+        metric_values = metric_outputs.metric_values
+        core = " | ".join(
+            [
+                f"{k} : {fix_float_to_length(metric_values[k], 8)}"
+                for k in sorted(metric_values)
+            ]
+        )
+        msg = (
+            f"| epoch {self.state.epoch:^4d} - "
+            f"step {self.state.step:^6d} | {core} | "
+            f"score : {fix_float_to_length(final_score, 8)} |"
+        )
+        print(msg)
+        with open(self.metric_log_path, "a") as f:
+            f.write(f"{msg}\n")
 
     def _monitor_step(self) -> MonitorResults:
         outputs = None
@@ -232,10 +240,11 @@ class Trainer:
         save_checkpoint = False
         if self.state.should_monitor:
             # get metrics
-            outputs, metric_outputs = self.get_metrics()
+            outputs, metric_outputs = self.get_metrics(portion=self.valid_portion)
+            self.callback.log_metrics(metric_outputs)
             # logging
             if self.state.should_log_artifacts:
-                self._log_artifacts()
+                self.callback.log_artifacts(self)
             if self.state.should_log_metrics_msg:
                 self._log_metrics_msg(metric_outputs)
             # check terminate
@@ -416,4 +425,5 @@ class Trainer:
 
 __all__ = [
     "Trainer",
+    "TrainerCallback",
 ]
