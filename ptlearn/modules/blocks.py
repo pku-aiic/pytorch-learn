@@ -29,6 +29,30 @@ class Lambda(nn.Module):
         return self.fn(*args, **kwargs)
 
 
+class Mapping(nn.Module):
+    def __init__(
+        self,
+        in_dim: int,
+        out_dim: int,
+        bias: bool = True,
+        activation: Optional[str] = "ReLU",
+        batch_norm: bool = False,
+        dropout: float = 0.0,
+    ):
+        super().__init__()
+        blocks: List[nn.Module] = [nn.Linear(in_dim, out_dim, bias)]
+        if activation is not None:
+            blocks.append(getattr(nn, activation)())
+        if batch_norm:
+            blocks.append(BN(out_dim))
+        if dropout > 0.0:
+            blocks.append(nn.Dropout(dropout))
+        self.net = nn.Sequential(*blocks)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.net(x)
+
+
 class BN(nn.BatchNorm1d):
     def forward(self, net: torch.Tensor) -> torch.Tensor:
         if len(net.shape) == 3:
