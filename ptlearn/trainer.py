@@ -118,6 +118,7 @@ class Trainer:
         self.ddp_model = None
         if not self.ddp:
             return None
+        assert self.ddp_settings is not None
         # ddp setup
         rank = self.ddp_settings.rank
         _setup_ddp(self.ddp_settings)
@@ -309,7 +310,9 @@ class Trainer:
                     monitor_results = self._monitor_step()
                     self.callback.after_monitor(monitor_results)
                     if monitor_results.save_checkpoint:
-                        self.save_checkpoint(monitor_results.metric_outputs.final_score)
+                        metric_outputs = monitor_results.metric_outputs
+                        assert metric_outputs is not None
+                        self.save_checkpoint(metric_outputs.final_score)
                     terminate = monitor_results.terminate
                     if terminate:
                         break
@@ -347,6 +350,7 @@ class Trainer:
         if self.metrics is not None:
             return outputs, self.metrics.evaluate(outputs)
         loss_items = outputs.loss_items
+        assert loss_items is not None
         return outputs, MetricsOutputs(-loss_items[LOSS_KEY], loss_items)
 
     # checkpointing

@@ -192,7 +192,7 @@ class TrainerState:
 
 
 class TrainerMonitor:
-    def __init__(self):
+    def __init__(self):  # type: ignore
         self.num_snapshot = 0
         self.best_score = -math.inf
         self.worst_score = -math.inf

@@ -6,6 +6,7 @@ import torch.nn as nn
 
 from typing import Any
 from typing import Dict
+from typing import Type
 from typing import Callable
 from typing import Optional
 from typing import ContextManager
@@ -92,8 +93,8 @@ def register_core(
     *,
     before_register: Optional[Callable] = None,
     after_register: Optional[Callable] = None,
-):
-    def _register(cls):
+) -> Callable[[Type], Type]:
+    def _register(cls: Type) -> Type:
         if before_register is not None:
             before_register(cls)
         registered = global_dict.get(name)
@@ -114,17 +115,13 @@ def register_core(
 class context_error_handler:
     """ Util class which provides exception handling when using context manager. """
 
-    @property
-    def exception_suffix(self):
-        return ""
-
-    def _normal_exit(self, exc_type, exc_val, exc_tb):
+    def _normal_exit(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> Any:
         pass
 
-    def _exception_exit(self, exc_type, exc_val, exc_tb):
+    def _exception_exit(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> Any:
         pass
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> Any:
         if not exc_type:
             self._normal_exit(exc_type, exc_val, exc_tb)
         else:
