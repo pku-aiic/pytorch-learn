@@ -22,6 +22,7 @@ class MLData(DataProtocol):
 
 @DataLoaderProtocol.register("ml")
 class MLLoader(DataLoaderProtocol):
+    data: MLData
     cursor: int
     indices: np.ndarray
 
