@@ -79,7 +79,7 @@ class DLLoader(DataLoaderProtocol):
     def __init__(
         self,
         loader: DataLoader,
-        batch_callback: Callable[[Any], tensor_dict_type],
+        batch_callback: Optional[Callable[[Any], tensor_dict_type]] = None,
     ):
         self.loader = loader
         self.data = loader.dataset  # type: ignore
@@ -92,7 +92,10 @@ class DLLoader(DataLoaderProtocol):
         return self
 
     def __next__(self) -> tensor_dict_type:
-        return self.batch_callback(self._iterator.__next__())  # type: ignore
+        batch = self._iterator.__next__()  # type: ignore
+        if self.batch_callback is None:
+            return batch
+        return self.batch_callback(batch)
 
 
 __all__ = [
