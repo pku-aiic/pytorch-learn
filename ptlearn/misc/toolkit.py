@@ -1,5 +1,7 @@
+import math
 import torch
 import datetime
+import torchvision
 
 import numpy as np
 import torch.nn as nn
@@ -7,6 +9,7 @@ import torch.nn as nn
 from typing import Any
 from typing import Dict
 from typing import Type
+from typing import Union
 from typing import Callable
 from typing import Optional
 from typing import ContextManager
@@ -46,6 +49,18 @@ def to_device(batch: tensor_dict_type, device: torch.device) -> tensor_dict_type
     }
 
 
+def save_images(
+    arr: Union[np.ndarray, torch.Tensor],
+    path: str,
+    n_row: Optional[int] = None,
+) -> None:
+    if isinstance(arr, np.ndarray):
+        arr = to_torch(arr)
+    if n_row is None:
+        n_row = math.ceil(math.sqrt(len(arr)))
+    torchvision.utils.save_image(arr, path, normalize=True, nrow=n_row)
+
+
 def timestamp(simplify: bool = False, ensure_different: bool = False) -> str:
     """
     Return current timestamp.
@@ -67,6 +82,33 @@ def timestamp(simplify: bool = False, ensure_different: bool = False) -> str:
     if ensure_different:
         return now.strftime("%Y-%m-%d_%H-%M-%S-%f")
     return now.strftime("%Y-%m-%d_%H-%M-%S")
+
+
+def update_dict(src_dict: dict, tgt_dict: dict) -> dict:
+    """
+    Update tgt_dict with src_dict.
+    * Notice that changes will happen only on keys which src_dict holds.
+
+    Parameters
+    ----------
+    src_dict : dict
+    tgt_dict : dict
+
+    Returns
+    -------
+    tgt_dict : dict
+
+    """
+
+    for k, v in src_dict.items():
+        tgt_v = tgt_dict.get(k)
+        if tgt_v is None:
+            tgt_dict[k] = v
+        elif not isinstance(v, dict):
+            tgt_dict[k] = v
+        else:
+            update_dict(v, tgt_v)
+    return tgt_dict
 
 
 def shallow_copy_dict(d: dict) -> dict:
