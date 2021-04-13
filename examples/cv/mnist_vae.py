@@ -19,6 +19,8 @@ def batch_callback(batch: Tuple[Tensor, Tensor]) -> tensor_dict_type:
 
 class VAECallback(ptlearn.TrainerCallback):
     def log_artifacts(self, trainer: ptlearn.Trainer) -> None:
+        if not self.is_rank_0:
+            return None
         batch = next(iter(trainer.validation_loader))
         batch = to_device(batch, trainer.device)
         with eval_context(trainer.model):

@@ -31,6 +31,8 @@ from .modules.schedulers import scheduler_dict
 
 
 class TrainerCallback:
+    is_rank_0: bool = True
+
     def log_lr(self, key: str, lr: float, step: int) -> None:
         pass
 
@@ -43,6 +45,8 @@ class TrainerCallback:
         metric_outputs: MetricsOutputs,
         metric_log_path: str,
     ) -> None:
+        if not self.is_rank_0:
+            return None
         final_score = metric_outputs.final_score
         metric_values = metric_outputs.metric_values
         core = " | ".join(
@@ -94,6 +98,7 @@ class Trainer:
         metrics: Optional[MetricsProtocol] = None,
         workplace: str = "_logs",
         metric_log_file: str = "metrics.txt",
+        rank: Optional[int] = None,
     ):
         self.config = config or {}
         self.state_config = state_config or {}
@@ -105,17 +110,20 @@ class Trainer:
         self.monitor = monitor or TrainerMonitor()
         self.callback = callback or TrainerCallback()
         self.metrics = metrics
+        self.ddp = rank is not None
+        self.is_rank_0 = self.callback.is_rank_0 = rank is None or rank == 0
         # initialize artifact structure
-        self.workplace = os.path.join(workplace, timestamp())
-        if os.path.isdir(self.workplace):
-            print(f"{WARNING_PREFIX}workplace already exists, it will be erased")
-            shutil.rmtree(self.workplace)
-        os.makedirs(self.workplace)
-        self.metric_log_path = os.path.join(self.workplace, metric_log_file)
-        with open(self.metric_log_path, "w"):
-            pass
-        self.checkpoint_folder = os.path.join(self.workplace, "checkpoints")
-        os.makedirs(self.checkpoint_folder)
+        if self.is_rank_0:
+            self.workplace = os.path.join(workplace, timestamp())
+            if os.path.isdir(self.workplace):
+                print(f"{WARNING_PREFIX}workplace already exists, it will be erased")
+                shutil.rmtree(self.workplace)
+            os.makedirs(self.workplace)
+            self.metric_log_path = os.path.join(self.workplace, metric_log_file)
+            with open(self.metric_log_path, "w"):
+                pass
+            self.checkpoint_folder = os.path.join(self.workplace, "checkpoints")
+            os.makedirs(self.checkpoint_folder)
         # properties
         self.checkpoint_scores: Dict[str, float] = {}
 
@@ -206,16 +214,17 @@ class Trainer:
         if self.state.should_monitor:
             # get metrics
             outputs, metric_outputs = self.get_metrics(portion=self.valid_portion)
-            self.callback.log_metrics(metric_outputs)
             # logging
-            if self.state.should_log_artifacts:
-                self.callback.log_artifacts(self)
-            if self.state.should_log_metrics_msg:
-                self.callback.log_metrics_msg(
-                    self.state,
-                    metric_outputs,
-                    self.metric_log_path,
-                )
+            if self.is_rank_0:
+                self.callback.log_metrics(metric_outputs)
+                if self.state.should_log_artifacts:
+                    self.callback.log_artifacts(self)
+                if self.state.should_log_metrics_msg:
+                    self.callback.log_metrics_msg(
+                        self.state,
+                        metric_outputs,
+                        self.metric_log_path,
+                    )
             # check terminate
             if self.state.should_start_snapshot:
                 score = metric_outputs.final_score
@@ -258,8 +267,9 @@ class Trainer:
         *,
         cuda: Optional[str] = None,
     ) -> None:
-        with open(os.path.join(self.workplace, "model.txt"), "w") as f:
-            f.write(str(model))
+        if self.is_rank_0:
+            with open(os.path.join(self.workplace, "model.txt"), "w") as f:
+                f.write(str(model))
         self.device = torch.device("cpu" if cuda is None else f"cuda:{cuda}")
         self.loss = loss
         self.model = model.to(self.device)
@@ -286,7 +296,7 @@ class Trainer:
                     self.callback.after_step(step_outputs)
                     monitor_results = self._monitor_step()
                     self.callback.after_monitor(monitor_results)
-                    if monitor_results.save_checkpoint:
+                    if self.is_rank_0 and monitor_results.save_checkpoint:
                         metric_outputs = monitor_results.metric_outputs
                         assert metric_outputs is not None
                         self.save_checkpoint(metric_outputs.final_score)
@@ -299,19 +309,20 @@ class Trainer:
             if terminate:
                 break
         # restore
-        if os.path.isdir(self.checkpoint_folder):
+        if not self.ddp and os.path.isdir(self.checkpoint_folder):
             print(f"{INFO_PREFIX}rolling back to the best checkpoint")
             has_ckpt = self.restore_checkpoint()
         # finalize
         self.state.set_terminate()
-        _, self.final_results = self.get_metrics()
-        self.callback.log_metrics_msg(
-            self.state,
-            self.final_results,
-            self.metric_log_path,
-        )
-        if not has_ckpt:
-            self.save_checkpoint(self.final_results.final_score)
+        if self.is_rank_0:
+            _, self.final_results = self.get_metrics()
+            self.callback.log_metrics_msg(
+                self.state,
+                self.final_results,
+                self.metric_log_path,
+            )
+            if not has_ckpt:
+                self.save_checkpoint(self.final_results.final_score)
 
     def get_metrics(
         self,
