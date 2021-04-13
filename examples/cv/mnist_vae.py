@@ -56,7 +56,7 @@ valid_pt_loader = DataLoader(train_data, batch_size=64, shuffle=True)  # type: i
 train_loader = loader_base(train_pt_loader, batch_callback)
 valid_loader = loader_base(valid_pt_loader, batch_callback)
 
-loss = ptlearn.loss_dict["vae"]({"kld_ratio": 0.001})
+loss = ptlearn.loss_dict["vae"]({"kld_ratio": 0.1})
 vae = ptlearn.VAE(28, 1)
 inference = ptlearn.DLInference(vae)
 pt_trainer = ptlearn.Trainer(
