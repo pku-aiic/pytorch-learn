@@ -5,13 +5,10 @@ import torch
 import shutil
 
 import numpy as np
-import torch.nn as nn
-import torch.distributed as dist
 
 from typing import *
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler
-from torch.nn.parallel import DistributedDataParallel as DDP
 
 from .constants import *
 from .types import tensor_dict_type
@@ -31,23 +28,6 @@ from .misc.toolkit import timestamp
 from .misc.toolkit import fix_float_to_length
 from .modules.optimizers import optimizer_dict
 from .modules.schedulers import scheduler_dict
-
-
-class DDPSettings(NamedTuple):
-    rank: int
-    world_size: int
-    port: str = "12355"
-    backend: str = "gloo"
-
-
-def _setup_ddp(ddp_settings: DDPSettings) -> None:
-    os.environ["MASTER_ADDR"] = "localhost"
-    os.environ["MASTER_PORT"] = ddp_settings.port
-    dist.init_process_group(
-        ddp_settings.backend,
-        rank=ddp_settings.rank,
-        world_size=ddp_settings.world_size,
-    )
 
 
 class TrainerCallback:
@@ -109,8 +89,6 @@ class Trainer:
         valid_portion: float = 1.0,
         amp: bool = False,
         clip_norm: float = 0.0,
-        ddp: bool = False,
-        ddp_settings: Optional[DDPSettings] = None,
         monitor: Optional[TrainerMonitor] = None,
         callback: Optional[TrainerCallback] = None,
         metrics: Optional[MetricsProtocol] = None,
@@ -124,10 +102,6 @@ class Trainer:
         self.use_amp = amp
         self.grad_scaler = torch.cuda.amp.GradScaler(enabled=amp)
         self.clip_norm = clip_norm
-        self.ddp = ddp
-        self.ddp_settings = ddp_settings
-        if ddp and ddp_settings is None:
-            raise ValueError("`ddp_settings` should be provided when `ddp` is True")
         self.monitor = monitor or TrainerMonitor()
         self.callback = callback or TrainerCallback()
         self.metrics = metrics
@@ -146,24 +120,8 @@ class Trainer:
         self.checkpoint_scores: Dict[str, float] = {}
 
     @property
-    def model_for_training(self) -> nn.Module:
-        return self.ddp_model or self.model
-
-    @property
     def validation_loader(self) -> DataLoaderProtocol:
         return self.valid_loader or self.train_loader_copy
-
-    # ddp
-
-    def _init_ddp(self) -> None:
-        self.ddp_model = None
-        if not self.ddp:
-            return None
-        assert self.ddp_settings is not None
-        # ddp setup
-        rank = self.ddp_settings.rank
-        _setup_ddp(self.ddp_settings)
-        self.ddp_model = DDP(self.model.to(rank), device_ids=[rank])
 
     # init
 
@@ -174,9 +132,9 @@ class Trainer:
         optimizer_config: Dict[str, Any],
     ) -> Optimizer:
         if params_name == "all":
-            parameters = self.model_for_training.parameters()
+            parameters = self.model.parameters()
         else:
-            attr = getattr(self.model_for_training, params_name)
+            attr = getattr(self.model, params_name)
             if not isinstance(attr, torch.nn.Module):
                 parameters = attr
             else:
@@ -218,7 +176,7 @@ class Trainer:
         for opt in self.optimizers.values():
             self.grad_scaler.unscale_(opt)
         self._gradient_norm = torch.nn.utils.clip_grad_norm_(
-            self.model_for_training.parameters(),
+            self.model.parameters(),
             max_norm=self.clip_norm,
         )
 
@@ -226,7 +184,7 @@ class Trainer:
         for opt in self.optimizers.values():
             self.grad_scaler.step(opt)
             self.grad_scaler.update()
-        for param in self.model_for_training.parameters():
+        for param in self.model.parameters():
             param.grad = None
 
     def _scheduler_step(self) -> None:
@@ -314,8 +272,6 @@ class Trainer:
             num_epoch=self.num_epoch,
             **self.state_config,
         )
-        # ddp
-        self._init_ddp()
         # optimizer
         self._init_optimizers()
         # train
@@ -324,8 +280,6 @@ class Trainer:
         while self.state.should_train:
             try:
                 self.state.epoch += 1
-                if self.ddp:
-                    dist.barrier()
                 for i, batch in enumerate(self.train_loader):
                     self.state.step += 1
                     step_outputs = self._step(i, batch)
@@ -346,8 +300,7 @@ class Trainer:
                 break
         # restore
         if os.path.isdir(self.checkpoint_folder):
-            if not self.ddp:
-                print(f"{INFO_PREFIX}rolling back to the best checkpoint")
+            print(f"{INFO_PREFIX}rolling back to the best checkpoint")
             has_ckpt = self.restore_checkpoint()
         # finalize
         self.state.set_terminate()
